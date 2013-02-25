@@ -20,17 +20,32 @@ class Archiver
       # css
       doc.css('head link[rel="stylesheet"]').each do |e|
         href = e.get_attribute('href')
-        path = CGI.escape(URI(href).path)
+        csspath = CGI.escape(URI(href).path)
         unless downloaded[href]
           @log.info(href)
           open(href) do |src|
-            open(@dir + '/css/' + path, 'wb') do |des|
-              des.write(src.read)
+            open(@dir + '/css/' + csspath, 'wb') do |des|
+              content = src.read
+              content.scan(/url\((http:.*?)\)/).each do |m|
+                url = m[0]
+                imgpath = CGI.escape(URI(url).path)
+                unless downloaded[url]
+                  @log.info(url)
+                  open(url) do |src|
+                    open(@dir + '/img/' + imgpath, 'wb') do |des|
+                      des.write(src.read)
+                    end
+                  end
+                end
+                downloaded[url] = true
+                content.gsub!(url, '../img/' + CGI.escape(imgpath))
+              end
+              des.write(content)
             end
           end
           downloaded[href] = true
         end
-        e.set_attribute('href', './css/' + CGI.escape(path))
+        e.set_attribute('href', './css/' + CGI.escape(csspath))
       end
       # images
       doc.css('img').each do |e|
@@ -55,7 +70,7 @@ class Archiver
       # link to other entry
       doc.css('a').each do |e|
         href = e.get_attribute('href')
-        if href && href.match(/#{id}\/(?:entry-\d+|entrylist-\d+)\.html/)
+        if href && href.match(/#{id}\/(?:entry-\d+|entrylist(-\d+)?)\.html/)
           path = URI(href).path.split(/\//).last
           e.set_attribute('href', './' + path)
           targets.push(path) unless downloaded[path]
