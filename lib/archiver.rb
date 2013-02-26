@@ -20,26 +20,27 @@ class Archiver
       # css
       doc.css('head link[rel="stylesheet"]').each do |e|
         href = e.get_attribute('href')
-        csspath = CGI.escape(URI(href).path)
+        csspath = CGI.escape(href)
         unless downloaded[href]
           @log.info(href)
           open(href) do |src|
-            open(@dir + '/css/' + csspath, 'wb') do |des|
-              content = src.read
-              content.scan(/url\((http:.*?)\)/).each do |m|
-                url = m[0]
-                imgpath = CGI.escape(URI(url).path)
-                unless downloaded[url]
-                  @log.info(url)
-                  open(url) do |src|
-                    open(@dir + '/img/' + imgpath, 'wb') do |des|
-                      des.write(src.read)
-                    end
+            content = src.read
+            content.scan(/url\((http:.*?)\)/).each do |m|
+              url = m[0]
+              next unless url.match(id)
+              imgpath = CGI.escape(url)
+              unless downloaded[url]
+                @log.info(url)
+                open(url) do |src|
+                  open(@dir + '/img/' + imgpath, 'wb') do |des|
+                    des.write(src.read)
                   end
                 end
-                downloaded[url] = true
-                content.gsub!(url, '../img/' + CGI.escape(imgpath))
               end
+              downloaded[url] = true
+              content.gsub!(url, '../img/' + CGI.escape(imgpath))
+            end
+            open(@dir + '/css/' + csspath, 'wb') do |des|
               des.write(content)
             end
           end
@@ -50,18 +51,18 @@ class Archiver
       # images
       doc.css('img').each do |e|
         src = e.get_attribute('src')
-        path = CGI.escape(URI(src).path)
-        if path.match(/#{id}/)
+        imgpath = CGI.escape(src)
+        if src.match(id)
           unless downloaded[src]
             @log.info(src)
             open(src) do |src|
-              open(@dir + '/img/' + path, 'wb') do |des|
+              open(@dir + '/img/' + imgpath, 'wb') do |des|
                 des.write(src.read)
               end
             end
             downloaded[src] = true
           end
-          e.set_attribute('src', './img/' + CGI.escape(path))
+          e.set_attribute('src', './img/' + CGI.escape(imgpath))
         end
       end
       # scripts
