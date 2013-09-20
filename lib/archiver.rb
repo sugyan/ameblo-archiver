@@ -23,28 +23,32 @@ class Archiver
         csspath = CGI.escape(href)
         unless downloaded[href]
           @log.info(href)
-          open(href) do |src|
-            content = src.read
-            content.scan(/url\((http:.*?)\)/).each do |m|
-              url = m[0]
-              next unless url.match(id)
-              imgpath = CGI.escape(url)
-              unless downloaded[url]
-                @log.info(url)
-                open(url) do |src|
-                  open(@dir + '/img/' + imgpath, 'wb') do |des|
-                    des.write(src.read)
+          begin
+            open(href) do |src|
+              content = src.read
+              content.scan(/url\((http:.*?)\)/).each do |m|
+                url = m[0]
+                next unless url.match(id)
+                imgpath = CGI.escape(url)
+                unless downloaded[url]
+                  @log.info(url)
+                  open(url) do |src|
+                    open(@dir + '/img/' + imgpath, 'wb') do |des|
+                      des.write(src.read)
+                    end
                   end
                 end
+                downloaded[url] = true
+                content.gsub!(url, '../img/' + CGI.escape(imgpath))
               end
-              downloaded[url] = true
-              content.gsub!(url, '../img/' + CGI.escape(imgpath))
+              open(@dir + '/css/' + csspath, 'wb') do |des|
+                des.write(content)
+              end
             end
-            open(@dir + '/css/' + csspath, 'wb') do |des|
-              des.write(content)
-            end
+            downloaded[href] = true
+          rescue => err
+            @log.error(err)
           end
-          downloaded[href] = true
         end
         e.set_attribute('href', './css/' + CGI.escape(csspath))
       end
@@ -52,15 +56,19 @@ class Archiver
       doc.css('img').each do |e|
         src = e.get_attribute('src')
         imgpath = CGI.escape(src)
-        if src.match(id)
+        if src.match(id) && ! src.match(/measure/)
           unless downloaded[src]
             @log.info(src)
-            open(src) do |src|
-              open(@dir + '/img/' + imgpath, 'wb') do |des|
-                des.write(src.read)
+            begin
+              open(src) do |src|
+                open(@dir + '/img/' + imgpath, 'wb') do |des|
+                  des.write(src.read)
+                end
               end
+              downloaded[src] = true
+            rescue => err
+              @log.error(err)
             end
-            downloaded[src] = true
           end
           e.set_attribute('src', './img/' + CGI.escape(imgpath))
         end
