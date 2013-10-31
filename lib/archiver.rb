@@ -16,7 +16,14 @@ class Archiver
 
     while page = targets.shift
       @log.info(page)
-      doc = Nokogiri::HTML(open("http://ameblo.jp/#{id}/#{page}"))
+      doc = nil
+      begin
+        doc = Nokogiri::HTML(open("http://ameblo.jp/#{id}/#{page}"))
+      rescue => err
+        @log.error(err)
+        sleep 3
+        retry
+      end
       # css
       doc.css('head link[rel="stylesheet"]').each do |e|
         href = e.get_attribute('href')
